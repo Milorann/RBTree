@@ -1,12 +1,13 @@
-
 #ifndef RBTREE_H
 #define RBTREE_H
 
 #include <iostream>
 
-enum class Color { RED, BLACK };
+enum class Color {
+    RED, BLACK
+};
 
-template <typename T>
+template<typename T>
 struct Node {
     T key;
     Node *left;
@@ -14,12 +15,14 @@ struct Node {
     Node *parent;
     Color color;
 
-    Node(T key);
+    explicit Node(T key);
 
     Node(T key, Node *left, Node *right, Node *parent, Color color);
+
+    Node<T> *sibling();
 };
 
-template <typename T>
+template<typename T>
 class RBTree {
 public:
     RBTree();
@@ -30,13 +33,17 @@ public:
 
     void insert(T key);
 
-    int size() const;
+    [[nodiscard]] int size() const;
 
-    bool empty() const;
+    [[nodiscard]] bool empty() const;
 
     T *lowerBound(T key) const;
 
-    T *find(T key) const;
+    T *upperBound(T key) const;
+
+    [[nodiscard]] T *find(T key) const;
+
+    void erase(const T &key);
 
     Node<T> *root{};
 
@@ -54,5 +61,14 @@ private:
     void leftRotation(Node<T> *node);
 
     void rightRotation(Node<T> *node);
+
+    void eraseNode(Node<T> *node);
+
+    Node<T> *findReplacementNode(Node<T> *node);
+
+    void repairDoubleBlack(Node<T> *node);
+
+    Node<T> *findNode(T key);
 };
+
 #endif // RBTREE_H

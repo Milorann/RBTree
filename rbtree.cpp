@@ -1,20 +1,211 @@
 #include "rbtree.h"
 
-template <typename T>
-Node<T>::Node(T key) {
-        this->key = key;
-        left = nullptr;
-        right = nullptr;
-        parent = nullptr;
-        color = Color::RED;
+template<typename T>
+T *RBTree<T>::upperBound(T key) const {
+    Node<T> *x = root;
+    Node<T> *min = nullptr;
+    while (x != nullptr) {
+        if (x->key > key) {
+            min = x;
+            x = x->left;
+        } else {
+            x = x->right;
+        }
+    }
+    if (min == nullptr) {
+        return nullptr;
+    }
+    return &min->key;
 }
 
-template <typename T>
-    Node<T>::Node(T key, Node *left, Node *right, Node *parent, Color color)
-        : key(key), left(left), right(right), parent(parent), color(color) {
+template<typename T>
+Node<T> *RBTree<T>::findNode(T key) {
+    Node<T> *t_node = root;
+    while (t_node) {
+        if (key < t_node->key) {
+            t_node = t_node->left;
+        } else if (t_node->key < key) {
+            t_node = t_node->right;
+        } else {
+            return t_node;
+        }
+    }
+    return nullptr;
+}
+
+template<typename T>
+void RBTree<T>::repairDoubleBlack(Node<T> *node) {
+    if (node == root) {
+        return;
     }
 
-template <typename T>
+    Node<T> *sibling = node->sibling();
+    Node<T> *parent = node->parent;
+
+    if (sibling == nullptr) {
+        repairDoubleBlack(parent);
+    } else {
+        if (sibling->color == Color::RED) {
+            parent->color = Color::RED;
+            sibling->color = Color::BLACK;
+            if (sibling == sibling->parent->left) {
+                rightRotation(parent);
+            } else {
+                leftRotation(parent);
+            }
+            repairDoubleBlack(node);
+        } else {
+            if ((sibling->left && sibling->left->color == Color::RED) ||
+                (sibling->right && sibling->right->color == Color::RED)) {
+                if (sibling->left && sibling->left->color == Color::RED) {
+                    if (sibling == sibling->parent->left) {
+                        sibling->left->color = sibling->color;
+                        sibling->color = parent->color;
+                        rightRotation(parent);
+                    } else {
+                        sibling->left->color = parent->color;
+                        rightRotation(sibling);
+                        leftRotation(parent);
+                    }
+                } else {
+                    if (sibling == sibling->parent->left) {
+                        sibling->right->color = parent->color;
+                        leftRotation(sibling);
+                        rightRotation(parent);
+                    } else {
+                        sibling->right->color = sibling->color;
+                        sibling->color = parent->color;
+                        leftRotation(parent);
+                    }
+                }
+                parent->color = Color::BLACK;
+            } else {
+                sibling->color = Color::RED;
+                if (parent->color == Color::BLACK) {
+                    repairDoubleBlack(parent);
+                } else {
+                    parent->color = Color::BLACK;
+                }
+            }
+        }
+    }
+}
+
+template<typename T>
+Node<T> *Node<T>::sibling() {
+    if (parent == nullptr) {
+        return nullptr;
+    }
+    if (this == parent->left) {
+        return parent->right;
+    }
+    return parent->left;
+}
+
+template<typename T>
+Node<T> *RBTree<T>::findReplacementNode(Node<T> *node) {
+    if (node->left && node->right) {
+        Node<T> *replacement = node->right;
+        while (replacement->left) {
+            replacement = replacement->left;
+        }
+        return replacement;
+    }
+    if (node->left == nullptr && node->right == nullptr) {
+        return nullptr;
+    }
+    if (node->left) {
+        return node->left;
+    } else {
+        return node->right;
+    }
+}
+
+template<typename T>
+void RBTree<T>::eraseNode(Node<T> *node) {
+    Node<T> *replacement_node = findReplacementNode(node);
+
+    bool both_black = false;
+    if ((replacement_node == nullptr || replacement_node->color == Color::BLACK) &&
+        (node->color == Color::BLACK)) {
+        both_black = true;
+    }
+
+    Node<T> *parent = node->parent;
+
+    if (replacement_node == nullptr) {
+        if (node == root) {
+            root = nullptr;
+        } else {
+            if (!both_black) {
+                if (node->sibling()) {
+                    node->sibling()->color = Color::RED;
+                }
+            } else {
+                repairDoubleBlack(node);
+            }
+            if (node == node->parent->left) {
+                parent->left = nullptr;
+            } else {
+                parent->right = nullptr;
+            }
+        }
+        delete node;
+        return;
+    }
+
+    if (node->left == nullptr || node->right == nullptr) {
+        if (node == root) {
+            node->key = replacement_node->key;
+            node->left = nullptr;
+            node->right = nullptr;
+            delete replacement_node;
+        } else {
+            if (node != node->parent->left) {
+                parent->right = replacement_node;
+            } else {
+                parent->left = replacement_node;
+            }
+            delete node;
+            replacement_node->parent = parent;
+            if (!both_black) {
+                replacement_node->color = Color::BLACK;
+            } else {
+                repairDoubleBlack(replacement_node);
+            }
+        }
+        return;
+    }
+
+    T swap_key = replacement_node->key;
+    replacement_node->key = node->key;
+    node->key = swap_key;
+    eraseNode(replacement_node);
+}
+
+template<typename T>
+void RBTree<T>::erase(const T &key) {
+    Node<T> *a = findNode(key);
+    if (a != nullptr) {
+        eraseNode(a);
+    }
+}
+
+template<typename T>
+Node<T>::Node(T key) {
+    this->key = key;
+    left = nullptr;
+    right = nullptr;
+    parent = nullptr;
+    color = Color::RED;
+}
+
+template<typename T>
+Node<T>::Node(T key, Node *left, Node *right, Node *parent, Color color)
+    : key(key), left(left), right(right), parent(parent), color(color) {
+}
+
+template<typename T>
 void RBTree<T>::insert(T key) {
     if (root == nullptr) {
         ++size_;
@@ -52,7 +243,7 @@ void RBTree<T>::insert(T key) {
     fixTreeInsert(inserted_node);
 }
 
-template <typename T>
+template<typename T>
 void RBTree<T>::fixTreeInsert(Node<T> *node) {
     if (node->parent == nullptr) {
         node->color = Color::BLACK;
@@ -93,7 +284,7 @@ void RBTree<T>::fixTreeInsert(Node<T> *node) {
     }
 }
 
-template <typename T>
+template<typename T>
 void RBTree<T>::leftRotation(Node<T> *node) {
     Node<T> *p = node->parent;
     Node<T> *r = node->right;
@@ -116,7 +307,7 @@ void RBTree<T>::leftRotation(Node<T> *node) {
     }
 }
 
-template <typename T>
+template<typename T>
 void RBTree<T>::rightRotation(Node<T> *node) {
     Node<T> *p = node->parent;
     Node<T> *l = node->left;
@@ -139,7 +330,7 @@ void RBTree<T>::rightRotation(Node<T> *node) {
     }
 }
 
-template <typename T>
+template<typename T>
 Node<T> *RBTree<T>::findUncle(Node<T> *node) {
     Node<T> *grandpa = findGrandparent(node);
     if (grandpa == nullptr) {
@@ -151,7 +342,7 @@ Node<T> *RBTree<T>::findUncle(Node<T> *node) {
     return grandpa->left;
 }
 
-template <typename T>
+template<typename T>
 Node<T> *RBTree<T>::findGrandparent(Node<T> *node) {
     if (node->parent == nullptr || node->parent->parent == nullptr) {
         return nullptr;
@@ -159,7 +350,7 @@ Node<T> *RBTree<T>::findGrandparent(Node<T> *node) {
     return node->parent->parent;
 }
 
-template <typename T>
+template<typename T>
 void RBTree<T>::nodeDestructor(Node<T> *node) {
     if (node == nullptr) {
         return;
@@ -169,7 +360,7 @@ void RBTree<T>::nodeDestructor(Node<T> *node) {
     delete node;
 }
 
-template <typename T>
+template<typename T>
 T *RBTree<T>::find(T key) const {
     Node<T> *t_node = root;
     while (t_node) {
@@ -184,7 +375,7 @@ T *RBTree<T>::find(T key) const {
     return nullptr;
 }
 
-template <typename T>
+template<typename T>
 T *RBTree<T>::lowerBound(T key) const {
     Node<T> *x = root;
     Node<T> *min = nullptr;
@@ -204,33 +395,31 @@ T *RBTree<T>::lowerBound(T key) const {
     return &min->key;
 }
 
-template <typename T>
+template<typename T>
 bool RBTree<T>::empty() const {
     return root == nullptr;
 }
 
-template <typename T>
+template<typename T>
 int RBTree<T>::size() const {
     return size_;
 }
 
-template <typename T>
+template<typename T>
 RBTree<T>::~RBTree() {
     nodeDestructor(root);
 }
 
-template <typename T>
+template<typename T>
 RBTree<T>::RBTree(std::initializer_list<T> list) {
     size_ = 0;
-    for (auto el : list) {
+    for (auto el: list) {
         insert(el);
     }
 }
 
-template <typename T>
+template<typename T>
 RBTree<T>::RBTree() {
     root = nullptr;
     size_ = 0;
 }
-
-
