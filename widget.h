@@ -3,7 +3,8 @@
 #define WIDGET_H
 
 #include <QWidget>
-
+#include <QtWidgets>
+#include "graphicsnode.h"
 
 
 QT_BEGIN_NAMESPACE
@@ -19,8 +20,12 @@ public:
     Widget(QWidget *parent = nullptr);
     ~Widget();
 
+private slots:
+    void on_pushButton_insert_clicked();
+
 private:
     Ui::Widget *ui;
+    QGraphicsScene *graphicsScene;
 };
 
 #endif // WIDGET_H
