@@ -16,7 +16,7 @@ public:
 private:
     RBTree *tree;
     Widget w;
-    Controller controller;
+    Controller *controller;
 };
 
 #endif // APPLICATION_H

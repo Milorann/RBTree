@@ -25,6 +25,7 @@ set(PROJECT_SOURCES
         application.h
         controller.cpp
         controller.h
+        Observer.h
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)

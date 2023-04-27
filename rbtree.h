@@ -1,7 +1,10 @@
 #ifndef RBTREE_H
 #define RBTREE_H
 
+#include "Observer.h"
+
 #include <iostream>
+#include <functional>
 
 enum class Color {
     RED, BLACK
@@ -23,6 +26,13 @@ struct Node {
 
 class RBTree {
 public:
+    struct DrawData
+    {
+        Node *root;
+        enum class Status { DEFAULT, FOUND, PASSING, DELETED };
+        std::pair<Node *, Status> changedNode;
+    };
+
     RBTree();
 
     RBTree(std::initializer_list<int> list);
@@ -45,7 +55,11 @@ public:
 
     Node *root{};
 
+    void subscribe(Observer<DrawData> *observer);
+
 private:
+    Observable<DrawData> drawData_ = DrawData{root};
+
     int size_;
 
     void nodeDestructor(Node *node);

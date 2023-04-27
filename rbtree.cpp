@@ -210,6 +210,11 @@ void RBTree::erase(const int &key)
     }
 }
 
+void RBTree::subscribe(Observer<DrawData> *observer)
+{
+    drawData_.subscribe(observer);
+}
+
 Node::Node(int key)
 {
     this->key = key;
