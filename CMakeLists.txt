@@ -21,6 +21,10 @@ set(PROJECT_SOURCES
         graphicsnode.h
         rbtree.cpp
         rbtree.h
+        application.cpp
+        application.h
+        controller.cpp
+        controller.h
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)

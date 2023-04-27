@@ -7,68 +7,66 @@ enum class Color {
     RED, BLACK
 };
 
-template<typename T>
 struct Node {
-    T key;
+    int key;
     Node *left;
     Node *right;
     Node *parent;
     Color color;
 
-    explicit Node(T key);
+    explicit Node(int key);
 
-    Node(T key, Node *left, Node *right, Node *parent, Color color);
+    Node(int key, Node *left, Node *right, Node *parent, Color color);
 
-    Node<T> *sibling();
+    Node *sibling();
 };
 
-template<typename T>
 class RBTree {
 public:
     RBTree();
 
-    RBTree(std::initializer_list<T> list);
+    RBTree(std::initializer_list<int> list);
 
     ~RBTree();
 
-    void insert(T key);
+    void insert(int key);
 
     [[nodiscard]] int size() const;
 
     [[nodiscard]] bool empty() const;
 
-    T *lowerBound(T key) const;
+    int *lowerBound(int key) const;
 
-    T *upperBound(T key) const;
+    int *upperBound(int key) const;
 
-    [[nodiscard]] T *find(T key) const;
+    [[nodiscard]] int *find(int key) const;
 
-    void erase(const T &key);
+    void erase(const int &key);
 
-    Node<T> *root{};
+    Node *root{};
 
 private:
     int size_;
 
-    void nodeDestructor(Node<T> *node);
+    void nodeDestructor(Node *node);
 
-    void fixTreeInsert(Node<T> *node);
+    void fixTreeInsert(Node *node);
 
-    Node<T> *findUncle(Node<T> *node);
+    Node *findUncle(Node *node);
 
-    Node<T> *findGrandparent(Node<T> *node);
+    Node *findGrandparent(Node *node);
 
-    void leftRotation(Node<T> *node);
+    void leftRotation(Node *node);
 
-    void rightRotation(Node<T> *node);
+    void rightRotation(Node *node);
 
-    void eraseNode(Node<T> *node);
+    void eraseNode(Node *node);
 
-    Node<T> *findReplacementNode(Node<T> *node);
+    Node *findReplacementNode(Node *node);
 
-    void repairDoubleBlack(Node<T> *node);
+    void repairDoubleBlack(Node *node);
 
-    Node<T> *findNode(T key);
+    Node *findNode(int key);
 };
 
 #endif // RBTREE_H
