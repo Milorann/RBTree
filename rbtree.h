@@ -28,7 +28,7 @@ class RBTree {
 public:
     struct DrawData
     {
-        Node *root;
+        Node *&root;
         enum class Status { DEFAULT, FOUND, PASSING, DELETED };
         std::pair<Node *, Status> changedNode;
     };

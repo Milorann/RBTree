@@ -28,15 +28,29 @@ public:
         Action action;
     };
 
+    struct ViewTree
+    {
+        float x;
+        float y;
+        int key;
+        float subtree_width;
+        QColor color;
+        ViewTree *left;
+        ViewTree *right;
+
+        ViewTree(float x, float y, int key, float subtree_width, QColor color);
+        static void nodeDestructor(ViewTree *node);
+
+        static constexpr int gap = 30;
+        static constexpr int vertical_gap = 70;
+    };
+
     Widget(QWidget *parent = nullptr);
     ~Widget();
 
     Observer<DrawData> *view();
 
-    void subscribe(Observer<ControllerData> *observer)
-    {
-        controllerData_.subscribe(observer);
-    }
+    void subscribe(Observer<ControllerData> *observer);
 
 private slots:
     void on_pushButton_insert_clicked();
@@ -44,8 +58,19 @@ private slots:
 private:
     void drawData(const DrawData &drawData);
 
+    void makeViewTree(const DrawData &drawData);
+    void buildViewTree(const std::pair<Node *, DrawData::Status> &changedNode,
+                       Node *modelNode,
+                       ViewTree *&viewNode,
+                       float dy);
+    QColor getColor(const std::pair<Node *, DrawData::Status> &changedNode, Node *modelNode);
+    void fillX(ViewTree *viewNode, int sgn, float parent_x);
+    void drawTree(ViewTree *viewNode);
+
     Ui::Widget *ui;
     QGraphicsScene *graphicsScene;
+
+    ViewTree *viewRoot;
 
     Observable<ControllerData> controllerData_ = ControllerData{};
     Observer<DrawData> drawDataView_ = [this](const DrawData& data) {
