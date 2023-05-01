@@ -3,7 +3,6 @@
 #define OBSERVER_H
 
 #include <functional>
-#include <iostream>
 #include <list>
 
 template<class T>

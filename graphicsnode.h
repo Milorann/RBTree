@@ -2,8 +2,12 @@
 #ifndef GRAPHICSNODE_H
 #define GRAPHICSNODE_H
 
-#include <QPainter>
 #include <QGraphicsItem>
+#include <QPainter>
+
+namespace rbtree {
+class GraphicsNode;
+}
 
 class GraphicsNode : public QGraphicsItem
 {

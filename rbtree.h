@@ -3,14 +3,19 @@
 
 #include "Observer.h"
 
-#include <iostream>
 #include <functional>
+#include <unistd.h>
 
-enum class Color {
-    RED, BLACK
-};
+namespace rbtree {
+enum class Color;
+struct Node;
+class RBTree;
+} // namespace rbtree
 
-struct Node {
+enum class Color { RED, BLACK };
+
+struct Node
+{
     int key;
     Node *left;
     Node *right;
@@ -24,13 +29,16 @@ struct Node {
     Node *sibling();
 };
 
-class RBTree {
+class RBTree
+{
 public:
     struct DrawData
     {
         Node *&root;
         enum class Status { DEFAULT, FOUND, PASSING, DELETED };
         std::pair<Node *, Status> changedNode;
+
+        DrawData &operator=(const RBTree::DrawData &dt);
     };
 
     RBTree();
@@ -45,23 +53,23 @@ public:
 
     [[nodiscard]] bool empty() const;
 
-    int *lowerBound(int key) const;
+    int *lowerBound(int key);
 
-    int *upperBound(int key) const;
+    int *upperBound(int key);
 
-    [[nodiscard]] int *find(int key) const;
+    int *find(int key);
 
     void erase(const int &key);
 
-    Node *root{};
+    void clear();
+
+    void inOrder(Node *node);
 
     void subscribe(Observer<DrawData> *observer);
 
+    Node *root{};
+
 private:
-    Observable<DrawData> drawData_ = DrawData{root};
-
-    int size_;
-
     void nodeDestructor(Node *node);
 
     void fixTreeInsert(Node *node);
@@ -81,6 +89,10 @@ private:
     void repairDoubleBlack(Node *node);
 
     Node *findNode(int key);
+
+    Observable<DrawData> drawData_ = DrawData{root};
+
+    int size_;
 };
 
 #endif // RBTREE_H

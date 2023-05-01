@@ -2,6 +2,25 @@
 #include "widget.h"
 #include "./ui_widget.h"
 
+Widget::ViewTree::ViewTree(float x, float y, int key, float subtree_width, QColor color)
+    : x(x)
+    , y(y)
+    , key(key)
+    , subtree_width(subtree_width)
+    , color(color)
+    , left(nullptr)
+    , right(nullptr)
+{}
+
+void Widget::ViewTree::nodeDestructor(ViewTree *node)
+{
+    if (node == nullptr) {
+        return;
+    }
+    nodeDestructor(node->left);
+    nodeDestructor(node->right);
+    delete node;
+}
 
 Widget::Widget(QWidget *parent)
     : QWidget(parent)
@@ -11,6 +30,7 @@ Widget::Widget(QWidget *parent)
     graphicsScene = new QGraphicsScene(this);
     ui->graphicsView->setScene(graphicsScene);
     viewRoot = nullptr;
+    isInitial_ = true;
 }
 
 Widget::~Widget()
@@ -32,7 +52,45 @@ void Widget::subscribe(Observer<ControllerData> *observer)
 
 void Widget::on_pushButton_insert_clicked()
 {
+    isInitial_ = false;
+    controllerData_.set({ui->spinBox_insert->value(), ControllerData::Action::INSERT});
+}
 
+void Widget::on_pushButton_delete_clicked()
+{
+    isInitial_ = false;
+    controllerData_.set({ui->spinBox_delete->value(), ControllerData::Action::ERASE});
+}
+
+void Widget::on_pushButton_find_clicked()
+{
+    isInitial_ = false;
+    controllerData_.set({ui->spinBox_find->value(), ControllerData::Action::FIND});
+}
+
+void Widget::on_pushButton_lowerBound_clicked()
+{
+    isInitial_ = false;
+    controllerData_.set({ui->spinBox_lowerBound->value(), ControllerData::Action::LOWERBOUND});
+}
+
+void Widget::on_pushButton_upperBound_clicked()
+{
+    isInitial_ = false;
+    controllerData_.set({ui->spinBox_upperBound->value(), ControllerData::Action::UPPERBOUND});
+}
+void Widget::on_pushButton_clear_clicked()
+{
+    isInitial_ = false;
+    controllerData_.set({0, ControllerData::Action::CLEAR});
+}
+
+void Widget::on_pushButton_print_clicked()
+{
+    isInitial_ = false;
+    controllerData_.set({0, ControllerData::Action::PRINT});
+    std::string print_text = printTree(viewRoot);
+    ui->textBrowser->setPlainText(print_text.c_str());
 }
 
 void Widget::drawData(const DrawData &drawData)
@@ -40,16 +98,23 @@ void Widget::drawData(const DrawData &drawData)
     graphicsScene->clear();
     makeViewTree(drawData);
     drawTree(viewRoot);
+    repaint();
+    QThread::sleep(isInitial_ ? 0 : 1);
 }
 
 void Widget::makeViewTree(const DrawData &drawData)
 {
     ViewTree::nodeDestructor(viewRoot);
+    viewRoot = nullptr;
     if (drawData.root == nullptr) {
         return;
     }
 
-    viewRoot = new ViewTree(0, 0, drawData.root->key, 0, Qt::black);
+    viewRoot = new ViewTree(0,
+                            0,
+                            drawData.root->key,
+                            0,
+                            getColor(drawData.changedNode, drawData.root));
 
     buildViewTree(drawData.changedNode, drawData.root->left, viewRoot->left, 0);
     buildViewTree(drawData.changedNode, drawData.root->right, viewRoot->right, 0);
@@ -98,7 +163,7 @@ QColor Widget::getColor(const std::pair<Node *, DrawData::Status> &changedNode, 
     } else {
         color = Qt::red;
     }
-    if (modelNode == changedNode.first) {
+    if (changedNode.first && modelNode->key == changedNode.first->key) {
         switch (changedNode.second) {
         case DrawData::Status::DELETED:
             color = Qt::darkGray;
@@ -167,24 +232,16 @@ void Widget::drawTree(ViewTree *viewNode)
         new GraphicsNode(viewNode->x, viewNode->y, viewNode->color, viewNode->key));
 }
 
-
-Widget::ViewTree::ViewTree(float x, float y, int key, float subtree_width, QColor color)
-    : x(x)
-    , y(y)
-    , key(key)
-    , subtree_width(subtree_width)
-    , color(color)
-    , left(nullptr)
-    , right(nullptr)
-{}
-
-void Widget::ViewTree::nodeDestructor(ViewTree *node)
+std::string Widget::printTree(ViewTree *node)
 {
     if (node == nullptr) {
-        return;
+        return "";
     }
-    nodeDestructor(node->left);
-    nodeDestructor(node->right);
-    delete node;
-}
 
+    std::string ans;
+
+    ans = printTree(node->left) + " " + std::to_string(node->key) + " ";
+    ans += printTree(node->right);
+
+    return ans;
+}

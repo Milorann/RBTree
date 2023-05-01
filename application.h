@@ -3,9 +3,12 @@
 #define APPLICATION_H
 
 #include "controller.h"
-#include "widget.h"
 #include "rbtree.h"
+#include "widget.h"
 
+namespace rbtree {
+class Application;
+}
 
 class Application
 {

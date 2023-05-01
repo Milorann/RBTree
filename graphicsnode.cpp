@@ -18,7 +18,7 @@ void GraphicsNode::paint(QPainter *painter, const QStyleOptionGraphicsItem *opti
 {
     QRectF rec = boundingRect();
 
-    painter->setPen(QPen(color));
+    painter->setPen(QPen(color, 2));
     painter->drawEllipse(rec);
     painter->drawText(rec, Qt::AlignCenter, std::to_string(value).c_str());
 }

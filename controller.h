@@ -5,6 +5,10 @@
 #include "rbtree.h"
 #include "widget.h"
 
+namespace rbtree {
+class Controller;
+}
+
 class Controller
 {
     using ControllerData = Widget::ControllerData;
@@ -13,18 +17,14 @@ public:
     Controller();
     Controller(RBTree *tree);
 
-    Observer<ControllerData> *view() {
-        return &controllerDataAction_;
-    }
+    Observer<ControllerData> *view();
 
 private:
-    void doAction(const ControllerData &controllerData){
-        // Сделать что-нибудь с деревом.
-    }
+    void doAction(const ControllerData &controllerData);
 
     RBTree *tree;
 
-    Observer<ControllerData> controllerDataAction_ = [this](const ControllerData& data) {
+    Observer<ControllerData> controllerDataAction_ = [this](const ControllerData &data) {
         doAction(data);
     };
 };
