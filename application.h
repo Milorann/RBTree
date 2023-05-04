@@ -7,19 +7,18 @@
 #include "widget.h"
 
 namespace rbtree {
-class Application;
-}
-
 class Application
 {
 public:
     Application();
-    ~Application();
 
 private:
-    RBTree *tree;
-    Widget w;
-    Controller *controller;
+    static RBTree getDefaultTree();
+
+    RBTree tree_;
+    Widget widget_;
+    Controller controller_;
 };
+} // namespace rbtree
 
 #endif // APPLICATION_H

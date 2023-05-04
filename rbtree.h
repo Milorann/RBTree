@@ -7,26 +7,15 @@
 #include <unistd.h>
 
 namespace rbtree {
-enum class Color;
-struct Node;
-class RBTree;
-} // namespace rbtree
-
-enum class Color { RED, BLACK };
+enum class Color { Red, Black };
 
 struct Node
 {
     int key;
+    Color color;
     Node *left;
     Node *right;
     Node *parent;
-    Color color;
-
-    explicit Node(int key);
-
-    Node(int key, Node *left, Node *right, Node *parent, Color color);
-
-    Node *sibling();
 };
 
 class RBTree
@@ -34,65 +23,59 @@ class RBTree
 public:
     struct DrawData
     {
-        Node *&root;
-        enum class Status { DEFAULT, FOUND, PASSING, DELETED };
-        std::pair<Node *, Status> changedNode;
+        enum class Status { Default, Found, Passing, Deleted };
 
-        DrawData &operator=(const RBTree::DrawData &dt);
+        Node *root;
+        std::pair<const Node *, Status> changedNode;
     };
 
-    RBTree();
-
+    RBTree() = default;
     RBTree(std::initializer_list<int> list);
-
+    RBTree(const RBTree &) = delete;
+    RBTree &operator=(const RBTree &) = delete;
+    RBTree(RBTree &&) noexcept = delete;
+    RBTree &operator=(RBTree &&) noexcept = delete;
     ~RBTree();
 
     void insert(int key);
 
     [[nodiscard]] int size() const;
-
     [[nodiscard]] bool empty() const;
 
-    int *lowerBound(int key);
+    int lowerBound(int key);
+    int upperBound(int key);
+    int find(int key);
 
-    int *upperBound(int key);
-
-    int *find(int key);
-
-    void erase(const int &key);
+    void erase(int key);
 
     void clear();
 
-    void inOrder(Node *node);
-
     void subscribe(Observer<DrawData> *observer);
 
-    Node *root{};
+    const Node *root() const;
 
 private:
-    void nodeDestructor(Node *node);
+    void destroySubtree(Node *node);
 
-    void fixTreeInsert(Node *node);
+    void rebalanceAfterInsert(Node *node);
 
+    Node *findSibling(Node *node);
     Node *findUncle(Node *node);
-
     Node *findGrandparent(Node *node);
+    Node *findNode(int key);
+    Node *findInsertionParent(int key);
+    Node *findReplacementNode(Node *node);
 
     void leftRotation(Node *node);
-
     void rightRotation(Node *node);
 
     void eraseNode(Node *node);
+    void rebalanceAfterDeletion(Node *node);
 
-    Node *findReplacementNode(Node *node);
+    Node *root_ = nullptr;
+    int size_ = 0;
 
-    void repairDoubleBlack(Node *node);
-
-    Node *findNode(int key);
-
-    Observable<DrawData> drawData_ = DrawData{root};
-
-    int size_;
+    Observable<DrawData> drawPort_ = DrawData{root_};
 };
-
+} // namespace rbtree
 #endif // RBTREE_H

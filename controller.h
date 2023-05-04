@@ -6,9 +6,6 @@
 #include "widget.h"
 
 namespace rbtree {
-class Controller;
-}
-
 class Controller
 {
     using ControllerData = Widget::ControllerData;
@@ -22,11 +19,12 @@ public:
 private:
     void doAction(const ControllerData &controllerData);
 
-    RBTree *tree;
+    RBTree *tree_;
 
     Observer<ControllerData> controllerDataAction_ = [this](const ControllerData &data) {
         doAction(data);
     };
 };
+} // namespace rbtree
 
 #endif // CONTROLLER_H

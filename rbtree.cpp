@@ -1,51 +1,6 @@
 #include "rbtree.h"
 
-Node::Node(int key)
-{
-    this->key = key;
-    left = nullptr;
-    right = nullptr;
-    parent = nullptr;
-    color = Color::RED;
-}
-
-Node::Node(int key, Node *left, Node *right, Node *parent, Color color)
-    : key(key)
-    , left(left)
-    , right(right)
-    , parent(parent)
-    , color(color)
-{}
-
-Node *Node::sibling()
-{
-    if (parent == nullptr) {
-        return nullptr;
-    }
-    if (this == parent->left) {
-        return parent->right;
-    }
-    return parent->left;
-}
-
-RBTree::DrawData &RBTree::DrawData::operator=(const DrawData &dt)
-{
-    if (this == &dt) {
-        return *this;
-    }
-
-    this->root = dt.root;
-    this->changedNode = dt.changedNode;
-
-    return *this;
-}
-
-RBTree::RBTree()
-{
-    root = nullptr;
-    size_ = 0;
-}
-
+namespace rbtree {
 RBTree::RBTree(std::initializer_list<int> list)
 {
     size_ = 0;
@@ -56,34 +11,24 @@ RBTree::RBTree(std::initializer_list<int> list)
 
 RBTree::~RBTree()
 {
-    nodeDestructor(root);
+    destroySubtree(root_);
 }
 
 void RBTree::insert(int key)
 {
-    if (root == nullptr) {
+    if (root_ == nullptr) {
         ++size_;
-        root = new Node(key, nullptr, nullptr, nullptr, Color::BLACK);
-        drawData_.set({root});
+        root_ = new Node{key, Color::Black};
+        drawPort_.set({root_});
         return;
     }
 
-    Node *t_node = root;
-    Node *p_node;
-    while (t_node) {
-        drawData_.set({root, {t_node, DrawData::Status::PASSING}});
-        p_node = t_node;
-        if (key < t_node->key) {
-            t_node = t_node->left;
-        } else if (t_node->key < key) {
-            t_node = t_node->right;
-        } else {
-            drawData_.set({root});
-            return;
-        }
+    Node *p_node = findInsertionParent(key);
+    if (p_node->key == key) {
+        return;
     }
 
-    auto *inserted_node = new Node(key);
+    auto *inserted_node = new Node{key};
     ++size_;
 
     inserted_node->parent = p_node;
@@ -92,17 +37,10 @@ void RBTree::insert(int key)
     } else {
         p_node->right = inserted_node;
     }
+    drawPort_.set({root_, {inserted_node, DrawData::Status::Found}});
 
-    drawData_.set({root, {inserted_node, DrawData::Status::FOUND}});
-
-    if (inserted_node->parent->parent == nullptr) {
-        drawData_.set({root});
-        return;
-    }
-
-    fixTreeInsert(inserted_node);
-
-    drawData_.set({root});
+    rebalanceAfterInsert(inserted_node);
+    drawPort_.set({root_});
 }
 
 int RBTree::size() const
@@ -112,18 +50,18 @@ int RBTree::size() const
 
 bool RBTree::empty() const
 {
-    return root == nullptr;
+    return root_ == nullptr;
 }
 
-int *RBTree::lowerBound(int key)
+int RBTree::lowerBound(int key)
 {
-    Node *x = root;
+    Node *x = root_;
     Node *min = nullptr;
     while (x != nullptr) {
-        drawData_.set({root, {x, RBTree::DrawData::Status::PASSING}});
+        drawPort_.set({root_, {x, RBTree::DrawData::Status::Passing}});
         if (x->key == key) {
-            drawData_.set({root, {x, RBTree::DrawData::Status::FOUND}});
-            return &x->key;
+            drawPort_.set({root_, {x, RBTree::DrawData::Status::Found}});
+            return x->key;
         } else if (x->key > key) {
             min = x;
             x = x->left;
@@ -132,20 +70,20 @@ int *RBTree::lowerBound(int key)
         }
     }
     if (min == nullptr) {
-        drawData_.set({root});
-        return nullptr;
+        drawPort_.set({root_});
+        return -1;
     }
 
-    drawData_.set({root, {min, RBTree::DrawData::Status::FOUND}});
-    return &min->key;
+    drawPort_.set({root_, {min, RBTree::DrawData::Status::Found}});
+    return min->key;
 }
 
-int *RBTree::upperBound(int key)
+int RBTree::upperBound(int key)
 {
-    Node *x = root;
+    Node *x = root_;
     Node *min = nullptr;
     while (x != nullptr) {
-        drawData_.set({root, {x, RBTree::DrawData::Status::PASSING}});
+        drawPort_.set({root_, {x, RBTree::DrawData::Status::Passing}});
         if (x->key > key) {
             min = x;
             x = x->left;
@@ -154,110 +92,92 @@ int *RBTree::upperBound(int key)
         }
     }
     if (min == nullptr) {
-        drawData_.set({root});
-        return nullptr;
+        drawPort_.set({root_});
+        return -1;
     }
 
-    drawData_.set({root, {min, RBTree::DrawData::Status::FOUND}});
-    return &min->key;
+    drawPort_.set({root_, {min, RBTree::DrawData::Status::Found}});
+    return min->key;
 }
 
-int *RBTree::find(int key)
+int RBTree::find(int key)
 {
-    Node *t_node = root;
-    while (t_node) {
-        drawData_.set({root, {t_node, RBTree::DrawData::Status::PASSING}});
-        if (key < t_node->key) {
-            t_node = t_node->left;
-        } else if (t_node->key < key) {
-            t_node = t_node->right;
-        } else {
-            drawData_.set({root, {t_node, RBTree::DrawData::Status::FOUND}});
-            return &t_node->key;
-        }
+    Node *node = findNode(key);
+    if (node == nullptr) {
+        drawPort_.set({root_});
+        return -1;
     }
 
-    drawData_.set({root});
-    return nullptr;
+    return node->key;
 }
 
-void RBTree::erase(const int &key)
+void RBTree::erase(int key)
 {
-    Node *a = findNode(key);
-    if (a != nullptr) {
-        eraseNode(a);
+    Node *node = findNode(key);
+    if (node != nullptr) {
+        eraseNode(node);
     }
 
-    drawData_.set({root});
+    drawPort_.set({root_});
 }
 
 void RBTree::clear()
 {
-    nodeDestructor(root);
+    destroySubtree(root_);
     size_ = 0;
-    root = nullptr;
-    drawData_.set({root});
-}
-
-void RBTree::inOrder(Node *node)
-{
-    if (node == nullptr) {
-        return;
-    }
-
-    inOrder(node->left);
-    drawData_.set({root, {node, DrawData::Status::PASSING}});
-    inOrder(node->right);
-
-    if (node == root) {
-        drawData_.set({root});
-    }
+    root_ = nullptr;
+    drawPort_.set({root_});
 }
 
 void RBTree::subscribe(Observer<DrawData> *observer)
 {
-    drawData_.subscribe(observer);
+    drawPort_.subscribe(observer);
 }
 
-void RBTree::nodeDestructor(Node *node)
+const Node *RBTree::root() const
+{
+    return root_;
+}
+
+void RBTree::destroySubtree(Node *node)
 {
     if (node == nullptr) {
         return;
     }
-    nodeDestructor(node->left);
-    nodeDestructor(node->right);
+    destroySubtree(node->left);
+    destroySubtree(node->right);
     delete node;
 }
 
-void RBTree::fixTreeInsert(Node *node)
+void RBTree::rebalanceAfterInsert(Node *node)
 {
     if (node->parent == nullptr) {
-        node->color = Color::BLACK;
-        drawData_.set({root});
+        node->color = Color::Black;
+        drawPort_.set({root_});
         return;
     }
 
-    if (node->parent->color == Color::BLACK) {
-        drawData_.set({root, {node->parent, DrawData::Status::PASSING}});
+    if (node->parent->color == Color::Black) {
+        drawPort_.set({root_, {node->parent, DrawData::Status::Passing}});
         return;
     }
 
     Node *uncle = findUncle(node);
     Node *grandpa = findGrandparent(node);
 
-    if (uncle && uncle->color == Color::RED) {
-        drawData_.set({root, {uncle, DrawData::Status::FOUND}});
+    if (uncle && uncle->color == Color::Red) {
+        drawPort_.set({root_, {uncle, DrawData::Status::Found}});
 
-        node->parent->color = Color::BLACK;
-        drawData_.set({root});
+        node->parent->color = Color::Black;
+        drawPort_.set({root_});
 
-        uncle->color = Color::BLACK;
-        drawData_.set({root});
+        uncle->color = Color::Black;
+        drawPort_.set({root_});
 
-        grandpa->color = Color::RED;
-        drawData_.set({root});
+        grandpa->color = Color::Red;
+        drawPort_.set({root_});
 
-        fixTreeInsert(grandpa);
+        rebalanceAfterInsert(grandpa);
         return;
     }
 
@@ -271,17 +191,28 @@ void RBTree::fixTreeInsert(Node *node)
         grandpa = findGrandparent(node);
     }
 
-    node->parent->color = Color::BLACK;
-    drawData_.set({root});
+    node->parent->color = Color::Black;
+    drawPort_.set({root_});
 
-    grandpa->color = Color::RED;
-    drawData_.set({root});
+    grandpa->color = Color::Red;
+    drawPort_.set({root_});
 
     if (node->key < node->parent->key) {
         rightRotation(grandpa);
     } else {
         leftRotation(grandpa);
     }
+}
+
+Node *RBTree::findSibling(Node *node)
+{
+    if (node->parent == nullptr) {
+        return nullptr;
+    }
+    if (node == node->parent->left) {
+        return node->parent->right;
+    }
+    return node->parent->left;
 }
 
 Node *RBTree::findUncle(Node *node)
@@ -291,10 +222,10 @@ Node *RBTree::findUncle(Node *node)
         return nullptr;
     }
     if (node->key < grandpa->key) {
-        drawData_.set({root, {grandpa->right, DrawData::Status::PASSING}});
+        drawPort_.set({root_, {grandpa->right, DrawData::Status::Passing}});
         return grandpa->right;
     }
-    drawData_.set({root, {grandpa->left, DrawData::Status::PASSING}});
+    drawPort_.set({root_, {grandpa->left, DrawData::Status::Passing}});
     return grandpa->left;
 }
 
@@ -303,143 +234,53 @@ Node *RBTree::findGrandparent(Node *node)
     if (node->parent == nullptr || node->parent->parent == nullptr) {
         return nullptr;
     }
-    drawData_.set({root, {node->parent->parent, DrawData::Status::FOUND}});
+    drawPort_.set({root_, {node->parent->parent, DrawData::Status::Found}});
     return node->parent->parent;
 }
 
-void RBTree::leftRotation(Node *node)
+Node *RBTree::findNode(int key)
 {
-    Node *p = node->parent;
-    drawData_.set({root, {p, DrawData::Status::PASSING}});
-
-    Node *r = node->right;
-    drawData_.set({root, {r, DrawData::Status::PASSING}});
-
-    node->right = r->left;
-    if (r->left) {
-        r->left->parent = node;
+    Node *t_node = root_;
+    while (t_node) {
+        drawPort_.set({root_, {t_node, DrawData::Status::Passing}});
+        if (key < t_node->key) {
+            t_node = t_node->left;
+        } else if (t_node->key < key) {
+            t_node = t_node->right;
+        } else {
+            drawPort_.set({root_, {t_node, DrawData::Status::Found}});
+            return t_node;
+        }
     }
-    r->left = node;
-    node->parent = r;
-
-    r->parent = p;
-    if (p == nullptr) {
-        root = r;
-        return;
-    }
-    if (r->key < p->key) {
-        p->left = r;
-    } else {
-        p->right = r;
-    }
-
-    drawData_.set({root});
+    return nullptr;
 }
 
-void RBTree::rightRotation(Node *node)
+Node *RBTree::findInsertionParent(int key)
 {
-    Node *p = node->parent;
-    drawData_.set({root, {p, DrawData::Status::PASSING}});
-
-    Node *l = node->left;
-    drawData_.set({root, {l, DrawData::Status::PASSING}});
-
-    node->left = l->right;
-    if (l->right) {
-        l->right->parent = node;
-    }
-    l->right = node;
-    node->parent = l;
-
-    l->parent = p;
-    if (p == nullptr) {
-        root = l;
-        return;
-    }
-    if (l->key < p->key) {
-        p->left = l;
-    } else {
-        p->right = l;
-    }
-
-    drawData_.set({root});
-}
-
-void RBTree::eraseNode(Node *node)
-{
-    drawData_.set({root, {node, DrawData::Status::FOUND}});
-
-    Node *replacement_node = findReplacementNode(node);
-    drawData_.set({root, {replacement_node, DrawData::Status::FOUND}});
-
-    bool both_black = false;
-    if ((replacement_node == nullptr || replacement_node->color == Color::BLACK)
-        && (node->color == Color::BLACK)) {
-        both_black = true;
-    }
-
-    Node *parent = node->parent;
-
-    if (replacement_node == nullptr) {
-        if (node == root) {
-            root = nullptr;
+    Node *t_node = root_;
+    Node *p_node;
+    while (t_node) {
+        drawPort_.set({root_, {t_node, DrawData::Status::Passing}});
+        p_node = t_node;
+        if (key < t_node->key) {
+            t_node = t_node->left;
+        } else if (t_node->key < key) {
+            t_node = t_node->right;
         } else {
-            if (!both_black) {
-                Node *sibling = node->sibling();
-                if (sibling) {
-                    drawData_.set({root, {sibling, DrawData::Status::PASSING}});
-                    sibling->color = Color::RED;
-                    drawData_.set({root});
-                }
-            } else {
-                repairDoubleBlack(node);
-            }
-            if (node == node->parent->left) {
-                parent->left = nullptr;
-            } else {
-                parent->right = nullptr;
-            }
+            drawPort_.set({root_});
+            return p_node;
         }
-        delete node;
-        return;
     }
-
-    if (node->left == nullptr || node->right == nullptr) {
-        if (node == root) {
-            node->key = replacement_node->key;
-            node->left = nullptr;
-            node->right = nullptr;
-            delete replacement_node;
-        } else {
-            if (node != node->parent->left) {
-                parent->right = replacement_node;
-            } else {
-                parent->left = replacement_node;
-            }
-            delete node;
-            replacement_node->parent = parent;
-            if (!both_black) {
-                replacement_node->color = Color::BLACK;
-            } else {
-                repairDoubleBlack(replacement_node);
-            }
-        }
-        return;
-    }
-
-    int swap_key = replacement_node->key;
-    replacement_node->key = node->key;
-    node->key = swap_key;
-    eraseNode(replacement_node);
+    return p_node;
 }
 
 Node *RBTree::findReplacementNode(Node *node)
 {
     if (node->left && node->right) {
         Node *replacement = node->right;
-        drawData_.set({root, {replacement, DrawData::Status::PASSING}});
+        drawPort_.set({root_, {replacement, DrawData::Status::Passing}});
         while (replacement->left) {
-            drawData_.set({root, {replacement->left, DrawData::Status::PASSING}});
+            drawPort_.set({root_, {replacement->left, DrawData::Status::Passing}});
             replacement = replacement->left;
         }
         return replacement;
@@ -454,107 +295,215 @@ Node *RBTree::findReplacementNode(Node *node)
     }
 }
 
-void RBTree::repairDoubleBlack(Node *node)
+void RBTree::leftRotation(Node *node)
 {
-    drawData_.set({root, {node, DrawData::Status::FOUND}});
+    Node *p = node->parent;
+    drawPort_.set({root_, {p, DrawData::Status::Passing}});
 
-    if (node == root) {
+    Node *r = node->right;
+    drawPort_.set({root_, {r, DrawData::Status::Passing}});
+
+    node->right = r->left;
+    if (r->left) {
+        r->left->parent = node;
+    }
+    r->left = node;
+    node->parent = r;
+
+    r->parent = p;
+    if (p == nullptr) {
+        root_ = r;
+        return;
+    }
+    if (r->key < p->key) {
+        p->left = r;
+    } else {
+        p->right = r;
+    }
+
+    drawPort_.set({root_});
+}
+
+void RBTree::rightRotation(Node *node)
+{
+    Node *p = node->parent;
+    drawPort_.set({root_, {p, DrawData::Status::Passing}});
+
+    Node *l = node->left;
+    drawPort_.set({root_, {l, DrawData::Status::Passing}});
+
+    node->left = l->right;
+    if (l->right) {
+        l->right->parent = node;
+    }
+    l->right = node;
+    node->parent = l;
+
+    l->parent = p;
+    if (p == nullptr) {
+        root_ = l;
+        return;
+    }
+    if (l->key < p->key) {
+        p->left = l;
+    } else {
+        p->right = l;
+    }
+
+    drawPort_.set({root_});
+}
+
+void RBTree::eraseNode(Node *node)
+{
+    drawPort_.set({root_, {node, DrawData::Status::Found}});
+    Node *replacement_node = findReplacementNode(node);
+    drawPort_.set({root_, {replacement_node, DrawData::Status::Found}});
+
+    bool both_black = false;
+    if ((replacement_node == nullptr || replacement_node->color == Color::Black)
+        && (node->color == Color::Black)) {
+        both_black = true;
+    }
+
+    if (replacement_node == nullptr && node == root_) {
+        root_ = nullptr;
+        delete node;
         return;
     }
 
-    Node *sibling = node->sibling();
     Node *parent = node->parent;
-
-    if (sibling == nullptr) {
-        repairDoubleBlack(parent);
-    } else {
-        if (sibling->color == Color::RED) {
-            drawData_.set({root, {sibling, DrawData::Status::FOUND}});
-            sibling->color = Color::BLACK;
-
-            drawData_.set({root, {parent, DrawData::Status::PASSING}});
-            parent->color = Color::RED;
-            drawData_.set({root});
-
-            if (sibling == sibling->parent->left) {
-                rightRotation(parent);
-            } else {
-                leftRotation(parent);
-            }
-            repairDoubleBlack(node);
-        } else {
-            if ((sibling->left && sibling->left->color == Color::RED)
-                || (sibling->right && sibling->right->color == Color::RED)) {
-                if (sibling->left && sibling->left->color == Color::RED) {
-                    drawData_.set({root, {sibling->left, DrawData::Status::PASSING}});
-                    if (sibling == sibling->parent->left) {
-                        sibling->left->color = sibling->color;
-                        drawData_.set({root});
-
-                        drawData_.set({root, {sibling, DrawData::Status::PASSING}});
-                        sibling->color = parent->color;
-                        drawData_.set({root});
-
-                        rightRotation(parent);
-                    } else {
-                        sibling->left->color = parent->color;
-                        drawData_.set({root});
-
-                        rightRotation(sibling);
-                        leftRotation(parent);
-                    }
-                } else {
-                    drawData_.set({root, {sibling->right, DrawData::Status::PASSING}});
-                    if (sibling == sibling->parent->left) {
-                        sibling->right->color = parent->color;
-                        drawData_.set({root});
-
-                        leftRotation(sibling);
-                        rightRotation(parent);
-                    } else {
-                        sibling->right->color = sibling->color;
-                        drawData_.set({root});
-
-                        drawData_.set({root, {sibling, DrawData::Status::PASSING}});
-                        sibling->color = parent->color;
-                        drawData_.set({root});
-
-                        leftRotation(parent);
-                    }
-                }
-                drawData_.set({root, {parent, DrawData::Status::PASSING}});
-                parent->color = Color::BLACK;
-                drawData_.set({root});
-            } else {
-                drawData_.set({root, {sibling, DrawData::Status::PASSING}});
-                sibling->color = Color::RED;
-                drawData_.set({root});
-
-                if (parent->color == Color::BLACK) {
-                    repairDoubleBlack(parent);
-                } else {
-                    drawData_.set({root, {parent, DrawData::Status::PASSING}});
-                    parent->color = Color::BLACK;
-                    drawData_.set({root});
-                }
-            }
+    if (replacement_node == nullptr) {
+        Node *sibling = findSibling(node);
+        if (!both_black && sibling) {
+            drawPort_.set({root_, {sibling, DrawData::Status::Passing}});
+            sibling->color = Color::Red;
+            drawPort_.set({root_});
+        } else if (both_black) {
+            rebalanceAfterDeletion(node);
         }
+        if (node == node->parent->left) {
+            parent->left = nullptr;
+        } else {
+            parent->right = nullptr;
+        }
+        delete node;
+        return;
     }
+    if ((node->left == nullptr || node->right == nullptr) && node == root_) {
+        node->key = replacement_node->key;
+        node->left = nullptr;
+        node->right = nullptr;
+        delete replacement_node;
+        return;
+    }
+    if (node->left == nullptr || node->right == nullptr) {
+        if (node != node->parent->left) {
+            parent->right = replacement_node;
+        } else {
+            parent->left = replacement_node;
+        }
+        delete node;
+
+        replacement_node->parent = parent;
+        if (!both_black) {
+            replacement_node->color = Color::Black;
+        } else {
+            rebalanceAfterDeletion(replacement_node);
+        }
+        return;
+    }
+
+    int swap_key = replacement_node->key;
+    replacement_node->key = node->key;
+    node->key = swap_key;
+    eraseNode(replacement_node);
 }
 
-Node *RBTree::findNode(int key)
+void RBTree::rebalanceAfterDeletion(Node *node)
 {
-    Node *t_node = root;
-    while (t_node) {
-        drawData_.set({root, {t_node, DrawData::Status::PASSING}});
-        if (key < t_node->key) {
-            t_node = t_node->left;
-        } else if (t_node->key < key) {
-            t_node = t_node->right;
-        } else {
-            drawData_.set({root, {t_node, DrawData::Status::FOUND}});
-            return t_node;
-        }
+    drawPort_.set({root_, {node, DrawData::Status::Found}});
+    if (node == root_) {
+        return;
     }
-    return nullptr;
+    Node *sibling = findSibling(node);
+    Node *parent = node->parent;
+    if (sibling == nullptr) {
+        rebalanceAfterDeletion(parent);
+        return;
+    }
+
+    if (sibling->color == Color::Red) {
+        drawPort_.set({root_, {sibling, DrawData::Status::Found}});
+        sibling->color = Color::Black;
+        drawPort_.set({root_, {parent, DrawData::Status::Passing}});
+        parent->color = Color::Red;
+        drawPort_.set({root_});
+
+        if (sibling == sibling->parent->left) {
+            rightRotation(parent);
+        } else {
+            leftRotation(parent);
+        }
+        rebalanceAfterDeletion(node);
+        return;
+    }
+    if (sibling->left && sibling->left->color == Color::Red) {
+        drawPort_.set({root_, {sibling->left, DrawData::Status::Passing}});
+        if (sibling == sibling->parent->left) {
+            sibling->left->color = sibling->color;
+            drawPort_.set({root_});
+
+            drawPort_.set({root_, {sibling, DrawData::Status::Passing}});
+            sibling->color = parent->color;
+            drawPort_.set({root_});
+
+            rightRotation(parent);
+        } else {
+            sibling->left->color = parent->color;
+            drawPort_.set({root_});
+
+            rightRotation(sibling);
+            leftRotation(parent);
+        }
+        drawPort_.set({root_, {parent, DrawData::Status::Passing}});
+        parent->color = Color::Black;
+        drawPort_.set({root_});
+        return;
+    }
+    if (sibling->right && sibling->right->color == Color::Red) {
+        drawPort_.set({root_, {sibling->right, DrawData::Status::Passing}});
+        if (sibling == sibling->parent->left) {
+            sibling->right->color = parent->color;
+            drawPort_.set({root_});
+
+            leftRotation(sibling);
+            rightRotation(parent);
+        } else {
+            sibling->right->color = sibling->color;
+            drawPort_.set({root_});
+
+            drawPort_.set({root_, {sibling, DrawData::Status::Passing}});
+            sibling->color = parent->color;
+            drawPort_.set({root_});
+
+            leftRotation(parent);
+        }
+        drawPort_.set({root_, {parent, DrawData::Status::Passing}});
+        parent->color = Color::Black;
+        drawPort_.set({root_});
+        return;
+    }
+
+    drawPort_.set({root_, {sibling, DrawData::Status::Passing}});
+    sibling->color = Color::Red;
+    drawPort_.set({root_});
+    if (parent->color == Color::Black) {
+        rebalanceAfterDeletion(parent);
+        return;
+    }
+
+    drawPort_.set({root_, {parent, DrawData::Status::Passing}});
+    parent->color = Color::Black;
+    drawPort_.set({root_});
 }
+} // namespace rbtree

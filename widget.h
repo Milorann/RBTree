@@ -16,85 +16,111 @@ class Widget;
 QT_END_NAMESPACE
 
 class Widget : public QWidget
-
 {
     Q_OBJECT
 
+    using RBTree = rbtree::RBTree;
+    using Node = rbtree::Node;
+    using Color = rbtree::Color;
     using DrawData = RBTree::DrawData;
+    using GraphicsNode = rbtree::GraphicsNode;
 
 public:
     struct ControllerData
     {
         int x;
-        enum Action { DEFAULT, INSERT, ERASE, FIND, LOWERBOUND, UPPERBOUND, CLEAR, PRINT };
+        enum Action { DoNothing, Insert, Erase, Find, LowerBound, UpperBound, Clear };
         Action action;
     };
 
-    struct ViewTree
+    struct ViewNode
     {
-        ViewTree(float x, float y, int key, float subtree_width, QColor color);
-        static void nodeDestructor(ViewTree *node);
-
-        static constexpr int gap = 30;
-        static constexpr int vertical_gap = 70;
-
         float x;
         float y;
         int key;
         float subtree_width;
         QColor color;
-        ViewTree *left;
-        ViewTree *right;
+        ViewNode *left;
+        ViewNode *right;
+    };
+
+    class ViewTree
+    {
+    public:
+        ViewTree() = default;
+        ViewTree(const DrawData &drawData);
+        ViewTree(const ViewTree &) = delete;
+        ViewTree &operator=(const ViewTree &) = delete;
+        ViewTree(ViewTree &&) noexcept = delete;
+        ViewTree &operator=(ViewTree &&) noexcept = delete;
+        ~ViewTree();
+
+        void rebuildViewTree_(const DrawData &drawData);
+
+        bool needAnimation = false;
+        ViewNode *viewRoot = nullptr;
+
+    private:
+        void buildViewTree(const std::pair<const Node *, DrawData::Status> &changedNode,
+                           Node *modelNode,
+                           ViewNode *&viewNode,
+                           float dy);
+        void fillX(ViewNode *viewNode, int sgn, float parent_x);
+        void destroySubtree(ViewNode *node);
+
+        static constexpr int gap = 30;
+        static constexpr int vertical_gap = 70;
     };
 
     Widget(QWidget *parent = nullptr);
+    Widget(const Widget &) = delete;
+    Widget &operator=(const Widget &) = delete;
+    Widget(Widget &&) noexcept = delete;
+    Widget &operator=(Widget &&) noexcept = delete;
     ~Widget();
 
-    Observer<DrawData> *view();
+    rbtree::Observer<DrawData> *view();
 
-    void subscribe(Observer<ControllerData> *observer);
+    void subscribe(rbtree::Observer<ControllerData> *observer);
 
 private slots:
     void on_pushButton_insert_clicked();
-
     void on_pushButton_delete_clicked();
-
     void on_pushButton_find_clicked();
-
     void on_pushButton_lowerBound_clicked();
-
     void on_pushButton_upperBound_clicked();
-
     void on_pushButton_clear_clicked();
-
     void on_pushButton_print_clicked();
+
+    void on_checkBox_stateChanged(int state);
 
 private:
     void drawData(const DrawData &drawData);
 
-    void makeViewTree(const DrawData &drawData);
+    void drawTree(const ViewNode *viewNode);
 
-    void buildViewTree(const std::pair<Node *, DrawData::Status> &changedNode,
-                       Node *modelNode,
-                       ViewTree *&viewNode,
-                       float dy);
+    std::string traverseInOrder(ViewNode *viewNode);
 
-    QColor getColor(const std::pair<Node *, DrawData::Status> &changedNode, Node *modelNode);
+    std::unique_ptr<Ui::Widget> ui_;
+    QGraphicsScene *graphicsScene_;
 
-    void fillX(ViewTree *viewNode, int sgn, float parent_x);
+    ViewTree viewTree_;
 
-    void drawTree(ViewTree *viewNode);
+    rbtree::Observable<ControllerData> controllerPort_
+        = ControllerData{-1, ControllerData::Action::DoNothing};
+    rbtree::Observer<DrawData> dataInput_ = [this](const DrawData &data) { drawData(data); };
+};
 
-    std::string printTree(ViewTree *node);
+class Palette
+{
+    using RBTree = rbtree::RBTree;
+    using Node = rbtree::Node;
+    using Color = rbtree::Color;
+    using DrawData = RBTree::DrawData;
 
-    bool isInitial_;
-
-    Ui::Widget *ui;
-    QGraphicsScene *graphicsScene;
-    ViewTree *viewRoot;
-
-    Observable<ControllerData> controllerData_ = ControllerData{};
-    Observer<DrawData> drawDataView_ = [this](const DrawData &data) { drawData(data); };
+public:
+    static QColor getColor(const std::pair<const Node *, DrawData::Status> &changedNode,
+                           const Node *modelNode);
 };
 
 #endif // WIDGET_H

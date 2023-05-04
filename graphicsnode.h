@@ -6,24 +6,21 @@
 #include <QPainter>
 
 namespace rbtree {
-class GraphicsNode;
-}
-
 class GraphicsNode : public QGraphicsItem
 {
+public:
+    GraphicsNode(float x, float y, QColor color, int value);
+
+    static constexpr int radius = 15;
+
+private:
+    QRectF boundingRect() const override;
+    void paint(QPainter *painter, const QStyleOptionGraphicsItem *, QWidget *) override;
+
     float x;
     float y;
     QColor color;
     int value;
-
-public:
-    GraphicsNode(float x, float y, QColor color, int value);
-
-    QRectF boundingRect() const;
-
-    void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget);
-
-    static constexpr int radius = 15;
 };
-
+} // namespace rbtree
 #endif // GRAPHICSNODE_H
